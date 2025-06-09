@@ -4,12 +4,30 @@
   "medici": {
     "Andreotti": [
       {
+        "Data": "2025-06-07",
+        "tipo_assenza": "Ferie"
+      },
+      {
+        "Data": "2025-06-08",
+        "tipo_assenza": "Ferie"
+      },
+      {
+        "Data": "2025-06-09",
+        "tipo_assenza": "Ferie"
+      }
+    ],
+    "Aisoni": [
+      {
         "Data": "2025-06-01",
         "tipo_assenza": "Ferie"
       },
       {
-        "Data": "2025-06-11",
-        "tipo_assenza": "Ferie"
+        "Data": "2025-06-09",
+        "tipo_assenza": "Malattia"
+      },
+      {
+        "Data": "2025-06-12",
+        "tipo_assenza": "Congresso"
       }
     ]
   }
