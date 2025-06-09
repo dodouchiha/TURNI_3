@@ -17,6 +17,7 @@ from functools import wraps
 import unicodedata 
 import re
 import hashlib
+import regex
 
 # --- CONFIGURAZIONE LOGGING --- (come prima)
 def setup_logging():
@@ -40,14 +41,17 @@ st.set_page_config(page_title="Input Assenze Medici", layout="wide", initial_sid
 # --- COSTANTI ---
 COL_DATA = "Data"
 COL_GIORNO = "Giorno"
-# COL_FESTIVO = "Festivo" # Mantenuto per la generazione base, ma non visualizzato
-# COL_NOME_FESTIVO = "Nome Festivo" # Mantenuto per la generazione base
+COL_FESTIVO = "Festivo"       # <-- DECOMMENTA QUESTA
+COL_NOME_FESTIVO = "Nome Festivo" # <-- DECOMMENTA QUESTA
 TIPI_ASSENZA = ["Presente", "Ferie", "Malattia", "Congresso", "Lezione", "Altro"]
 MEDICI_BACKUP_FILE = "medici_backup.json"
-ASSENZE_FILE_PREFIX = "assenze_medici" # Prefisso per il file JSON delle assenze
+ASSENZE_FILE_PREFIX = "assenze_medici"
 
-ROW_HEIGHT_PX = 35 # Mantenuto per l'editor
-TABLE_PADDING_PX = 3 # Mantenuto per l'editor
+ROW_HEIGHT_PX = 35
+TABLE_PADDING_PX = 3
+MIN_COLUMN_WIDTH_EXCEL = 12 # Non più usato se non c'è export Excel
+MAX_COLUMN_WIDTH_EXCEL = 45 # Non più usato se non c'è export Excel
+COLUMN_PADDING_EXCEL = 3    # Non più usato se non c'è export Excel
 
 # --- CONFIGURAZIONE APPLICAZIONE --- (come prima)
 class AppConfig:
