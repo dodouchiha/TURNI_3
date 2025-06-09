@@ -16,10 +16,9 @@ COL_DATA = "Data"
 COL_GIORNO = "Giorno"
 COL_FESTIVO = "Festivo"
 COL_NOME_FESTIVO = "Nome Festivo"
-# COL_AMBULATORIO = "Ambulatorio" # Rimosso
 TIPI_ASSENZA = ["Presente", "Ferie", "Malattia", "Congresso", "Lezione", "Altro"]
 
-# --- CONFIGURAZIONE GITHUB ---
+# --- CONFIGURAZIONE GITHUB --- (invariata)
 GITHUB_USER = "dodouchiha"
 REPO_NAME = "turni_3"
 FILE_PATH = "medici.json"
@@ -32,7 +31,7 @@ if not GITHUB_TOKEN:
 API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/{FILE_PATH}"
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 
-# --- FUNZIONI GITHUB --- ( invariate, le ometto per brevità ma sono nel codice completo sotto)
+# --- FUNZIONI GITHUB --- (invariate, le ometto per brevità)
 def carica_medici():
     """Carica l'elenco dei medici da GitHub."""
     try:
@@ -190,7 +189,7 @@ selected_anno = col2_sidebar.selectbox(
 st.session_state.selected_anno_index = lista_anni.index(selected_anno)
 nome_mese_corrente = calendar.month_name[selected_mese]
 
-# --- LOGICA PER GENERARE/AGGIORNARE IL DATAFRAME DEI TURNI ---
+# --- LOGICA PER GENERARE/AGGIORNARE IL DATAFRAME DEI TURNI --- (invariata)
 def genera_struttura_calendario(anno, mese, medici_selezionati):
     _, ultimo_giorno = calendar.monthrange(anno, mese)
     date_del_mese = pd.date_range(start=f"{anno}-{mese:02d}-01", end=f"{anno}-{mese:02d}-{ultimo_giorno}")
@@ -201,22 +200,17 @@ def genera_struttura_calendario(anno, mese, medici_selezionati):
         st.warning(f"Festività per l'anno {anno} non disponibili. Procedo senza.")
         festivita_anno = {}
 
-    # RIMOZIONE COLONNA AMBULATORIO
     df_cols = {
-        COL_DATA: date_del_mese,
+        COL_DATA: date_del_mese, # MANTENERE COME OGGETTI DATETIME
         COL_GIORNO: [d.strftime("%A") for d in date_del_mese],
         COL_FESTIVO: [d.date() in festivita_anno for d in date_del_mese],
         COL_NOME_FESTIVO: [festivita_anno.get(d.date(), "") for d in date_del_mese],
-        # COL_AMBULATORIO: ["Ambulatorio" if is_giorno_ambulatorio(d) else "" for d in date_del_mese] # RIMOSSO
     }
-
     for medico in medici_selezionati:
         df_cols[medico] = "Presente"
-    
     return pd.DataFrame(df_cols)
 
 calendar_config_key = f"{selected_anno}-{selected_mese}-{'_'.join(sorted(medici_pianificati))}"
-
 if 'current_calendar_config_key' not in st.session_state or \
    st.session_state.current_calendar_config_key != calendar_config_key or \
    'df_turni' not in st.session_state:
@@ -228,18 +222,24 @@ if 'current_calendar_config_key' not in st.session_state or \
 
 # --- FUNZIONE DI STYLING PER st.dataframe ---
 def style_weekend_festivi(row):
-    color = 'background-color: #f0f0f0' # Grigio chiaro per weekend/festivi
-    default_style = '' # Stile per giorni feriali (bianco di default)
+    color = 'background-color: #f0f0f0' 
+    default_style = '' 
     
-    # Converti la data della riga in oggetto datetime se è una stringa o timestamp
-    if isinstance(row[COL_DATA], str):
-        data_giorno = pd.to_datetime(row[COL_DATA]).date()
-    elif isinstance(row[COL_DATA], pd.Timestamp):
-        data_giorno = row[COL_DATA].date()
-    else: # Assumi sia già un oggetto date
-        data_giorno = row[COL_DATA]
+    # La colonna COL_DATA dovrebbe essere già un oggetto Timestamp qui
+    # Non c'è più bisogno di pd.to_datetime() o .date() se row[COL_DATA] è già un Timestamp
+    # Pandas Styler passa una Series per riga, quindi row[COL_DATA] è il valore della cella.
+    data_val = row[COL_DATA]
+    
+    # Assicuriamoci che sia un tipo di data che possiamo usare con weekday()
+    if not isinstance(data_val, (datetime, pd.Timestamp)):
+         # Questo non dovrebbe accadere se la colonna è stata creata correttamente.
+         # Ma per sicurezza, proviamo a convertirla. Se fallisce, non applichiamo lo stile.
+        try:
+            data_val = pd.to_datetime(data_val)
+        except:
+            return [default_style] * len(row) # Non fare nulla se non è una data valida
 
-    is_weekend = data_giorno.weekday() >= 5 # 5 per Sabato, 6 per Domenica
+    is_weekend = data_val.weekday() >= 5 # 5 per Sabato, 6 per Domenica
     
     if row[COL_FESTIVO] or is_weekend:
         return [color] * len(row)
@@ -252,32 +252,29 @@ if not medici_pianificati:
     st.info("👈 Seleziona almeno un medico dalla sidebar per iniziare la pianificazione.")
 elif 'df_turni' in st.session_state and not st.session_state.df_turni.empty:
     
-    # 1. VISUALIZZAZIONE STILIZZATA (NON EDITABILE)
     st.markdown("#### ✨ Visualizzazione Calendario (con festivi evidenziati)")
     df_display = st.session_state.df_turni.copy()
-    # Formattiamo la colonna Data per la visualizzazione
-    df_display[COL_DATA] = pd.to_datetime(df_display[COL_DATA]).dt.strftime('%d/%m/%Y (%a)')
-    # Rimuoviamo colonne non strettamente necessarie per la visualizzazione rapida se lo si desidera
-    # df_display_simplified = df_display.drop(columns=[COL_FESTIVO, COL_NOME_FESTIVO]) # Opzionale
     
-    # Colonne da visualizzare (escludendo quelle di supporto come COL_FESTIVO se non mostrate)
-    cols_to_display = [col for col in df_display.columns if col != COL_FESTIVO] # Non mostriamo la colonna booleana COL_FESTIVO
+    # NON convertire df_display[COL_DATA] a stringa qui.
+    # Lo styling funziona meglio con oggetti datetime.
+    # Applicheremo un formattatore specifico a st.dataframe.
+    
+    cols_to_display = [col for col in df_display.columns if col != COL_FESTIVO]
     
     st.dataframe(
-        df_display[cols_to_display].style.apply(style_weekend_festivi, axis=1),
+        df_display[cols_to_display].style.apply(style_weekend_festivi, axis=1)
+                                      .format(formatter={COL_DATA: lambda dt: dt.strftime('%d/%m/%Y (%a)')}), # APPLICA FORMATTER QUI
         use_container_width=True,
         hide_index=True
     )
-    st.markdown("---") # Separatore
+    st.markdown("---")
 
-    # 2. EDITOR DATI
     st.markdown("#### 📝 Inserisci/Modifica Assenze")
     column_config = {
         COL_DATA: st.column_config.DateColumn("Data", format="DD/MM/YYYY", disabled=True, width="small"),
         COL_GIORNO: st.column_config.TextColumn("Giorno", disabled=True, width="small"),
-        COL_FESTIVO: st.column_config.CheckboxColumn("Festivo?", disabled=True, width="small"), # Mantenuto per informazione
+        COL_FESTIVO: st.column_config.CheckboxColumn("Festivo?", disabled=True, width="small"),
         COL_NOME_FESTIVO: st.column_config.TextColumn("Festività", disabled=True, width="medium"),
-        # COL_AMBULATORIO: st.column_config.TextColumn("Ambulatorio", disabled=True, width="medium"), # RIMOSSO
     }
     for medico in medici_pianificati:
         column_config[medico] = st.column_config.SelectboxColumn(
@@ -301,7 +298,6 @@ elif 'df_turni' in st.session_state and not st.session_state.df_turni.empty:
 
     if not edited_df.equals(st.session_state.df_turni):
         st.session_state.df_turni = edited_df.copy()
-        # st.toast("Modifiche alle assenze salvate temporaneamente.", icon="💾")
 
     # --- ESPORTAZIONE --- (invariata)
     st.markdown("---")
@@ -310,7 +306,9 @@ elif 'df_turni' in st.session_state and not st.session_state.df_turni.empty:
         df_copy = df_to_export.copy()
         if COL_DATA in df_copy.columns:
             try:
-                df_copy[COL_DATA] = pd.to_datetime(df_copy[COL_DATA])
+                # Assicurarsi che sia datetime per il formato Excel, se non lo è già
+                if not pd.api.types.is_datetime64_any_dtype(df_copy[COL_DATA]):
+                    df_copy[COL_DATA] = pd.to_datetime(df_copy[COL_DATA])
             except Exception:
                 pass
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
@@ -334,4 +332,4 @@ elif medici_pianificati and ('df_turni' not in st.session_state or st.session_st
     st.warning("Il DataFrame dei turni è vuoto o non ancora generato. Verifica le selezioni o prova a ricaricare.")
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"Versione 0.5 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.sidebar.caption(f"Versione 0.6 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
