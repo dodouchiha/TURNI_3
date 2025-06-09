@@ -72,7 +72,7 @@ with st.sidebar.form("form_aggiungi"):
             if successo:
                 elenco_medici, sha_medici = carica_medici()
                 st.success("✅ Medico aggiunto e salvato su GitHub.")
-                st.stop()
+                st.experimental_rerun()
             else:
                 st.sidebar.error("❌ Errore: salvataggio su GitHub non riuscito.")
         else:
@@ -85,7 +85,7 @@ if medico_da_rimuovere and st.sidebar.button("Rimuovi"):
     if successo:
         elenco_medici, sha_medici = carica_medici()
         st.success("✅ Medico rimosso e salvato su GitHub.")
-        st.stop()
+        st.experimental_rerun()
     else:
         st.sidebar.error("❌ Errore: salvataggio su GitHub non riuscito.")
 
