@@ -1,0 +1,16 @@
+{
+  "anno": 2025,
+  "mese": 6,
+  "medici": {
+    "Andreotti": [
+      {
+        "Data": "2025-06-01",
+        "tipo_assenza": "Ferie"
+      },
+      {
+        "Data": "2025-06-11",
+        "tipo_assenza": "Ferie"
+      }
+    ]
+  }
+}
