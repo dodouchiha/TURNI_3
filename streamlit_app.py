@@ -448,29 +448,53 @@ def evidenzia_weekend_festivi(row_series):
         else: return [''] * len(row_series)
     except Exception as e_style: logger.error(f"Errore styling riga: {e_style}", exc_info=True); return [''] * len(row_series)
 
+# ... (tutto il codice precedente fino alla sezione AREA PRINCIPALE) ...
+
 # --- AREA PRINCIPALE ---
 st.title(f"🗓️ Pianificazione Turni Medici")
 st.markdown(f"### {nome_mese_corrente} {selected_anno}")
 df_turni_corrente = SessionManager.get_safe('df_turni')
-if not medici_pianificati: st.info("👈 **Nessun medico selezionato.** Scegli dalla sidebar.")
+
+if not medici_pianificati: 
+    st.info("👈 **Nessun medico selezionato.** Scegli dalla sidebar.")
 elif df_turni_corrente is None or df_turni_corrente.empty:
-    st.warning("📅 Calendario vuoto. Verifica selezioni o ricarica."); logger.warning(f"df_turni vuoto/None. Medici: {len(medici_pianificati)}. Stato: {df_turni_corrente}")
+    st.warning("📅 Calendario vuoto. Verifica selezioni o ricarica."); 
+    logger.warning(f"df_turni vuoto/None. Medici: {len(medici_pianificati)}. Stato: {df_turni_corrente}")
 else:
+    # --- SEZIONE VISUALIZZAZIONE CALENDARIO ---
     st.markdown("#### ✨ **Visualizzazione Calendario**")
-    df_visualizzazione = df_turni_corrente.copy()
+    
+    # Bottone di aggiornamento
+    col_titolo_vis, col_btn_aggiorna = st.columns([0.8, 0.2])
+    with col_titolo_vis:
+        pass # Spazio per il titolo se necessario o lasciare vuoto
+    with col_btn_aggiorna:
+        if st.button("🔄 Aggiorna Calendario", key="btn_refresh_calendar_view", help="Ricarica la visualizzazione del calendario con le ultime modifiche alle assenze."):
+            logger.info("Bottone 'Aggiorna Calendario' premuto, eseguo st.rerun()")
+            st.rerun()
+
+    df_visualizzazione = df_turni_corrente.copy() # Usa df_turni_corrente che è già da session_state
     try:
         styled_df = df_visualizzazione.style.apply(evidenzia_weekend_festivi, axis=1).format({COL_DATA: lambda dt: dt.strftime('%d/%m/%Y (%a)') if pd.notna(dt) else ""})
         styled_df = styled_df.hide([COL_FESTIVO], axis='columns')
         st.dataframe(styled_df, use_container_width=True, hide_index=True, height=(len(df_visualizzazione) + 1) * ROW_HEIGHT_PX + TABLE_PADDING_PX)
-    except Exception as e_df_display: logger.error(f"Errore display DataFrame stilizzato: {e_df_display}", exc_info=True); st.error("⚠️ Errore visualizzazione calendario."); st.dataframe(df_visualizzazione, use_container_width=True, hide_index=True)
+    except Exception as e_df_display: 
+        logger.error(f"Errore display DataFrame stilizzato: {e_df_display}", exc_info=True)
+        st.error("⚠️ Errore visualizzazione calendario.")
+        st.dataframe(df_visualizzazione, use_container_width=True, hide_index=True) # Fallback
+    
     st.divider()
+
+    # --- SEZIONE EDITOR ASSENZE ---
     st.markdown("#### 📝 **Inserisci/Modifica Assenze**")
+    # ... (codice dell'editor come prima) ...
     cols_per_editor = [COL_DATA, COL_GIORNO] + medici_pianificati
     column_config_editor = {COL_DATA: st.column_config.DateColumn("Data", format="DD/MM/YYYY", disabled=True, width="small"),
                             COL_GIORNO: st.column_config.TextColumn("Giorno", disabled=True, width="small")}
     for medico in medici_pianificati:
         nome_cognome = medico.split(); nome_display = nome_cognome[-1].capitalize() if len(nome_cognome) > 1 else medico.capitalize()
         column_config_editor[medico] = st.column_config.SelectboxColumn(f"Dr. {nome_display}", help=f"Stato per {medico}", options=TIPI_ASSENZA, required=True, width="medium")
+    
     df_editor_input_valid = all(col_edit in df_turni_corrente.columns for col_edit in cols_per_editor)
     if not df_editor_input_valid:
         missing_cols = [c for c in cols_per_editor if c not in df_turni_corrente.columns]
@@ -480,15 +504,40 @@ else:
         df_editor_input = df_turni_corrente[cols_per_editor].copy()
         editor_key = f"data_editor_assenze_{SessionManager.get_safe('last_calendar_key', 'default_key')}"
         try:
-            edited_df_assenze = st.data_editor(df_editor_input, column_config=column_config_editor, use_container_width=True, hide_index=True, num_rows="fixed", key=editor_key, height=(len(df_editor_input) + 1) * ROW_HEIGHT_PX + TABLE_PADDING_PX)
+            edited_df_assenze = st.data_editor(
+                df_editor_input, 
+                column_config=column_config_editor, 
+                use_container_width=True, 
+                hide_index=True, 
+                num_rows="fixed", 
+                key=editor_key, 
+                height=(len(df_editor_input) + 1) * ROW_HEIGHT_PX + TABLE_PADDING_PX
+            )
             modifiche_editor = False
+            # df_in_sessione = SessionManager.get_safe('df_turni') # Ottieni il riferimento diretto per la modifica
             for medico_col in medici_pianificati:
-                if df_turni_corrente[medico_col].dtype == edited_df_assenze[medico_col].dtype and not df_turni_corrente[medico_col].equals(edited_df_assenze[medico_col]):
-                    # Aggiorna direttamente il DataFrame in session_state
-                    SessionManager.get_safe('df_turni')[medico_col] = edited_df_assenze[medico_col].copy(); modifiche_editor = True
-            if modifiche_editor: st.toast("Assenze aggiornate localmente.", icon="📝"); logger.info("Assenze modificate e aggiornate in session_state.")
-        except Exception as e_data_editor: logger.error(f"Errore st.data_editor: {e_data_editor}", exc_info=True); st.error("⚠️ Errore editor assenze. Ricarica.")
+                # Verifica che le colonne esistano prima di confrontare
+                if (medico_col in st.session_state.df_turni.columns and # Modifica direttamente df_turni in session_state
+                    medico_col in edited_df_assenze.columns and
+                    st.session_state.df_turni[medico_col].dtype == edited_df_assenze[medico_col].dtype):
+                    
+                    if not st.session_state.df_turni[medico_col].equals(edited_df_assenze[medico_col]):
+                        st.session_state.df_turni[medico_col] = edited_df_assenze[medico_col].copy()
+                        modifiche_editor = True
+            
+            if modifiche_editor: 
+                st.toast("Assenze modificate. Clicca 'Aggiorna Calendario' per vedere le modifiche.", icon="📝")
+                logger.info("Assenze modificate e aggiornate in session_state. In attesa di aggiornamento visualizzazione.")
+                # NESSUN st.rerun() automatico qui
+                
+        except Exception as e_data_editor: 
+            logger.error(f"Errore st.data_editor: {e_data_editor}", exc_info=True)
+            st.error("⚠️ Errore editor assenze. Ricarica.")
+    
     st.divider()
+
+    # --- SEZIONE ESPORTAZIONE ---
+    # ... (codice esportazione come prima) ...
     st.markdown("#### 📤 **Esporta Calendario**")
     if df_turni_corrente is not None and not df_turni_corrente.empty:
         col_export_btn, col_export_info = st.columns([0.3, 0.7])
@@ -501,8 +550,9 @@ else:
         with col_export_info: st.caption(f"File '{nome_file_excel}'. Include formattazione.")
     else: st.caption("Nessun dato da esportare.")
 
+# ... (resto del codice, inclusa la didascalia della versione nella sidebar) ...
 st.sidebar.divider()
 st.sidebar.markdown(f"""<div style="font-size: 0.8em; text-align: center; color: grey;">
-    Gestione Turni Medici v1.1<br>
-    {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</div>""", unsafe_allow_html=True)
+    Gestione Turni Medici v1.1.1<br> 
+    {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</div>""", unsafe_allow_html=True) # Incremento versione per il bottone
 logger.info("--- Rendering pagina completato ---")
