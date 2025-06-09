@@ -13,7 +13,7 @@ st.set_page_config(page_title="Gestione Turni", layout="wide")
 
 # CONFIGURAZIONE GITHUB
 GITHUB_USER = "dodouchiha"
-REPO_NAME = "turni"
+REPO_NAME = "turni_3"
 FILE_PATH = "medici.json"
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/{FILE_PATH}"
