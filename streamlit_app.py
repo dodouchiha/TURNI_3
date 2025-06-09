@@ -469,7 +469,7 @@ def esporta_con_formattazione(df_originale, nome_file_base):
             for row_idx, row in enumerate(worksheet.iter_rows(min_row=2, max_col=len(df_export.columns), max_row=worksheet.max_row), 2):
                 for cell in row:
                     cell.font = cell_font
-                    if isinstance(cell.value, (datetime.datetime, pd.Timestamp, datetime.date)): # Se è una data
+                    if isinstance(cell.value, (datetime, pd.Timestamp, datetime.date)): # Se è una dataa
                         cell.number_format = 'DD/MM/YYYY' # Formato data Excel
                         cell.alignment = center_alignment
                     elif isinstance(cell.value, str) and cell.column_letter == worksheet.cell(row=row_idx, column=df_export.columns.get_loc(COL_GIORNO) + 1).column_letter: # Giorno
